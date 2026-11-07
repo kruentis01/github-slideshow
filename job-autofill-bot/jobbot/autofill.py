@@ -329,7 +329,8 @@ def profile_values(profile: dict, job: dict) -> dict:
         "current_employer": cv.get("current_employer", ""),
         "years_experience": str(cv["years_experience"]) if cv.get("years_experience") is not None else "",
         "expected_rate": f"{float(rate):.2f}" if rate else "",
-        "start_date": av.get("start_date") or date.today().isoformat(),
+        # "Immediately" (or any date now passed) means today, not the day setup was run.
+        "start_date": max(av.get("start_date") or "", date.today().isoformat()),
         "notice_period": av.get("notice_period", ""),
         "hours_per_week": str(av.get("hours_per_week", "")),
         "availability": availability_phrase(av),

@@ -121,3 +121,12 @@ def test_follows_apply_link(browser, tmp_path, profile):
     open_application(page, advert.as_uri())
     assert page.url.startswith(DEMO_FORM)
     page.close()
+
+
+def test_past_start_date_becomes_today(profile):
+    from datetime import date
+
+    profile["availability"]["start_date"] = "2020-01-01"
+    assert profile_values(profile, JOB)["start_date"] == date.today().isoformat()
+    profile["availability"]["start_date"] = "2999-01-01"
+    assert profile_values(profile, JOB)["start_date"] == "2999-01-01"

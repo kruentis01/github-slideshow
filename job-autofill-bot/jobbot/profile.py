@@ -15,7 +15,10 @@ from .geo import PostcodeError, lookup_town, normalise_postcode
 
 DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 FULL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-CONTRACT_CHOICES = ["permanent", "temporary", "fixed-term", "contract", "temp to perm", "zero hours", "apprenticeship"]
+CONTRACT_CHOICES = ["permanent", "temporary", "seasonal", "fixed-term", "contract", "temp to perm", "zero hours",
+                    "apprenticeship"]
+# UK National Living Wage (age 21+) from April 2026. Check gov.uk/national-minimum-wage-rates when it changes.
+NATIONAL_LIVING_WAGE = 12.71
 
 DEFAULT_COVER_LETTER = """Dear Hiring Manager,
 
@@ -145,7 +148,7 @@ def run_setup(cv_path: str, existing: dict | None = None) -> dict:
         "min_hourly_rate": click.prompt("  Minimum hourly rate in £ (0 for no minimum)", type=click.FloatRange(0, 500),
                                         default=old_prefs.get("min_hourly_rate") or 0) or None,
         "expected_hourly_rate": click.prompt("  Hourly rate to put on applications (£)", type=click.FloatRange(0, 500),
-                                             default=old_prefs.get("expected_hourly_rate") or 12.21),
+                                             default=old_prefs.get("expected_hourly_rate") or NATIONAL_LIVING_WAGE),
     }
     click.echo(f"  Contract types: {', '.join(CONTRACT_CHOICES)}")
     contracts = click.prompt("  Which contract types do you want? (comma separated, or 'any')",
