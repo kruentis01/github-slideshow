@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jobbot"
+version = "0.1.0"
+description = "Scan UK job listings near a postcode, compare them in a table, and pre-fill applications without submitting."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "click>=8.1",
+  "requests>=2.31",
+  "pdfplumber>=0.10",
+  "python-docx>=1.1",
+  "playwright>=1.45",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.scripts]
+jobbot = "jobbot.cli:main"
+
+[tool.setuptools]
+packages = ["jobbot", "jobbot.sources"]
+
+[tool.setuptools.package-data]
+jobbot = ["table_page.html", "demo/*.json", "demo/*.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

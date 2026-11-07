@@ -1,0 +1,65 @@
+[
+  {
+    "id": "demo-001",
+    "title": "Warehouse Operative – Nights",
+    "company": "Northgate Logistics",
+    "location": "Trafford Park, Manchester",
+    "distance_miles": 3.2,
+    "posted": "2026-11-02",
+    "description": "Northgate Logistics are recruiting Warehouse Operatives to join our busy distribution centre in Trafford Park.\nYou will be picking and packing customer orders using an RF scanner, loading vehicles and keeping the warehouse tidy and safe.\nPay: £13.50 per hour, rising to £14.20 per hour after 12 weeks.\nShifts: night shifts, 4 on 4 off, 12-hour shifts from 7pm - 7am.\nThis is a temporary role for an initial 12 week contract with the view to go permanent.\nForklift (counterbalance) licence desirable but not essential. Full training provided.\nWe are an equal opportunities employer."
+  },
+  {
+    "id": "demo-002",
+    "title": "Customer Service Advisor",
+    "company": "Brightline Energy",
+    "location": "Salford Quays",
+    "distance_miles": 2.1,
+    "posted": "2026-11-04",
+    "description": "Are you a friendly communicator looking for your next opportunity? Brightline Energy is hiring Customer Service Advisors to support households with billing and account queries over the telephone and live chat.\nSalary: £24,500 per annum plus quarterly bonus.\nHours: 37.5 hours per week, Monday to Friday, 8am - 4pm or 10am - 6pm on a rota, with one Saturday in four.\nPermanent, full-time contract.\nExperience in a call centre or retail customer service environment is an advantage. Microsoft Office skills required."
+  },
+  {
+    "id": "demo-003",
+    "title": "Kitchen Porter (Part-time)",
+    "company": "The Copper Pan",
+    "location": "Manchester City Centre",
+    "distance_miles": 1.0,
+    "posted": "2026-11-05",
+    "description": "The Copper Pan, an independent restaurant in the Northern Quarter, is looking for a reliable Kitchen Porter.\nYour duties will include washing up, cleaning the kitchen, receiving deliveries and basic food preparation.\n£12.21 an hour plus tips. Part-time, 20-25 hours per week, mainly evenings and weekends.\nZero hours contract with regular shifts available. Level 2 Food Hygiene certificate is a bonus."
+  },
+  {
+    "id": "demo-004",
+    "title": "Healthcare Assistant",
+    "company": "Willow House Care Home",
+    "location": "Stretford",
+    "distance_miles": 4.6,
+    "posted": "2026-10-30",
+    "description": "Willow House is seeking caring Healthcare Assistants to provide personal care, support with mealtimes and companionship to our residents, many of whom are living with dementia.\nWe offer £12.80 - £13.40 per hour depending on experience and qualifications (NVQ / Care Certificate).\nDay shifts 8am - 8pm and night shifts 8pm - 8am available on a rotating rota.\nPermanent position, full or part-time hours. Enhanced DBS required (we will pay for it). Manual handling and first aid training provided."
+  },
+  {
+    "id": "demo-005",
+    "title": "Retail Assistant – Christmas Temp",
+    "company": "Hollins & Co Department Store",
+    "location": "Arndale, Manchester",
+    "distance_miles": 1.4,
+    "posted": "2026-11-06",
+    "description": "Join our store team for the festive season! As a Retail Assistant you'll serve customers, handle cash and card payments, replenish stock and keep the shop floor looking great.\nThis is a seasonal fixed-term contract until January 2027.\n£12.60 per hour. Flexible hours between 16 and 30 hours per week including weekends and late-night shopping until 9pm.\nStaff discount of 25% from day one."
+  },
+  {
+    "id": "demo-006",
+    "title": "Office Administrator",
+    "company": "Kerr & Patel Solicitors",
+    "location": "Altrincham",
+    "distance_miles": 8.9,
+    "posted": "2026-10-28",
+    "description": "Kerr & Patel Solicitors are looking for an organised Office Administrator to cover maternity leave for 9 months.\nYou will manage the reception, diary scheduling, data entry, filing and post, and support the accounts team with invoicing in Xero.\n£26,000 - £28,000 per annum pro rata. Monday to Friday 9am - 5pm, 35 hours per week. Hybrid working after probation.\nStrong Microsoft Office (Word, Excel, Outlook) skills essential."
+  },
+  {
+    "id": "demo-007",
+    "title": "Delivery Driver (Van)",
+    "company": "SwiftDrop Couriers",
+    "location": "Oldham",
+    "distance_miles": 14.5,
+    "posted": "2026-11-01",
+    "description": "SwiftDrop are seeking self-motivated Delivery Drivers to deliver parcels across Greater Manchester in a company van.\nDay rate £120 per day, typically 9-10 hours. Earlies start at 6am. Must hold a full UK driving licence with no more than 6 points.\nOngoing temporary contract, Monday to Saturday, overtime available at peak times."
+  }
+]
