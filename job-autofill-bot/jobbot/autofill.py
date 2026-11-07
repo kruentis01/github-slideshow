@@ -30,12 +30,23 @@ COLLECT_FIELDS_JS = r"""
   };
   const out = [];
   window.__jobbotN = window.__jobbotN || 0;
-  for (const el of document.querySelectorAll("input, textarea, select")) {
-    const tag = el.tagName.toLowerCase();
-    const type = tag === "input" ? (el.getAttribute("type") || "text").toLowerCase() : tag;
+  const FIELDS = 'input, textarea, select, [role="combobox"], button[aria-haspopup="listbox"]';
+  // When a pop-up (like Reed's "Application questions") is open, fill only that.
+  const dialogs = [...document.querySelectorAll('[role="dialog"], [aria-modal="true"], dialog[open]')]
+    .filter(d => shown(d) && d.querySelector(FIELDS));
+  const scope = dialogs.length ? dialogs[dialogs.length - 1] : document;
+  for (const el of scope.querySelectorAll(FIELDS)) {
+    // Site search bars ("job title", "town or postcode") are never part of an application.
+    if (el.closest('header, nav, [role="search"], form[role="search"], form[action*="search" i]')) continue;
+    const custom = el.getAttribute("role") === "combobox" || el.getAttribute("aria-haspopup") === "listbox";
+    const rawTag = el.tagName.toLowerCase();
+    const tag = custom && rawTag !== "select" ? "combobox" : rawTag;
+    const type = tag === "combobox" ? (rawTag === "input" ? "combobox-input" : "combobox")
+      : tag === "input" ? (el.getAttribute("type") || "text").toLowerCase() : tag;
     if (["hidden", "submit", "button", "reset", "image", "password", "search", "color", "range"].includes(type)) continue;
-    if (el.disabled || el.readOnly) continue;
+    if (el.disabled || (el.readOnly && tag !== "combobox")) continue;
     const labels = el.labels ? [...el.labels] : [];
+    if (!el.labels && el.id) labels.push(...document.querySelectorAll(`label[for="${CSS.escape(el.id)}"]`));
     // File inputs and custom radios/checkboxes are often hidden behind a styled label.
     const visible = shown(el) || ((type === "file" || type === "radio" || type === "checkbox") && (labels.some(shown) || shown(el.parentElement)));
     if (!visible) continue;
@@ -65,12 +76,12 @@ COLLECT_FIELDS_JS = r"""
     }
     let near = "";
     if (!labelText.join("").trim() && !el.getAttribute("aria-label")) {
-      let node = el;
+      let node = tag === "combobox" && el.parentElement ? el.parentElement : el;
       for (let d = 0; d < 3 && node && !near; d++) {
         let sib = node.previousElementSibling;
         for (let k = 0; k < 2 && sib && !near; k++, sib = sib.previousElementSibling) {
           const t = textOf(sib);
-          if (t && t.length < 200 && !sib.matches("input,select,textarea")) near = t;
+          if (t && t.length < 200 && !sib.matches(FIELDS)) near = t;
         }
         node = node.parentElement;
       }
@@ -82,9 +93,14 @@ COLLECT_FIELDS_JS = r"""
       aria: el.getAttribute("aria-label") || "",
       autocomplete: el.getAttribute("autocomplete") || "",
       labels: labelText.join(" ").trim(), group, near,
-      value: (type === "checkbox" || type === "radio") ? (el.checked ? "checked" : "") : (type === "file" ? (el.files.length ? "file" : "") : (el.value || "")),
+      value: (type === "checkbox" || type === "radio") ? (el.checked ? "checked" : "")
+        : type === "file" ? (el.files.length ? "file" : "")
+        : type === "combobox" ? (/^\s*((please )?(select|choose)\b.*|-+|)\s*$/i.test(textOf(el)) ? "" : textOf(el))
+        : (el.value || ""),
       option_value: el.value || "",
-      required: el.required || el.getAttribute("aria-required") === "true",
+      // Many forms only show a red "*" instead of marking the field required.
+      required: !!el.required || el.getAttribute("aria-required") === "true"
+        || /\*\s*$/.test(labelText.join(" ").trim()) || /\*\s*$/.test(near) || /\*\s*$/.test(group),
       maxlength: el.maxLength > 0 ? el.maxLength : null,
       options: tag === "select" ? [...el.options].map(o => ({ value: o.value, text: o.text.trim() })) : [],
     });
@@ -201,6 +217,14 @@ RULES = [
     Rule("sponsorship", r"sponsor", ("select", "radio", "checkbox")),
     Rule("driving_licence", r"driving licen[cs]e|driver'?s licen[cs]e|full (uk )?licen[cs]e|can you drive", ("select", "radio", "checkbox")),
     Rule("own_transport", r"own transport|own (car|vehicle)|access to (a )?(car|vehicle)", ("select", "radio", "checkbox")),
+    Rule("current_employee", r"(currently|presently) (work|employed)\b.{0,20}\b(for|by|with|at)\b|do you (currently )?work (for|at) (us|the company)|"
+                             r"current (employee|member of staff|colleague|team member)|(existing|internal) (employee|colleague|candidate)",
+         ("select", "radio")),
+    Rule("over_18", r"\bover (the age of )?18\b|\baged? 18\b|\bat least 18\b|\b18 (years|or over|or older)|\b18\+", ("select", "radio", "checkbox")),
+    Rule("nights", r"(work|available|availability|able|willing|happy).{0,25}\b(nights?|overnight)\b|night (shifts?|work)", ("select", "radio", "checkbox")),
+    Rule("evenings", r"(work|available|availability|able|willing|happy).{0,25}\bevenings?\b|evening (shifts?|work)|late shifts?", ("select", "radio", "checkbox")),
+    Rule("weekends", r"(work|available|availability|able|willing|happy).{0,25}\bweekends?\b|weekend (shifts?|work|availability)|"
+                     r"work (on )?(saturdays?|sundays?)", ("select", "radio", "checkbox")),
     Rule("start_date", r"start[\s_-]*date|available from|availability date|when can you start|earliest start|date available", ("date", "text")),
     Rule("notice_period", r"notice", ("text", "select")),
     Rule("hours_per_week", r"hours (per|a|each) week|how many hours|weekly hours|hours available|hours do you want", ("number", "text", "select")),
@@ -230,6 +254,8 @@ def describe(f: dict) -> str:
 
 
 def field_kind(f: dict) -> str:
+    if f["tag"] == "combobox":
+        return "select"  # custom dropdowns answer the same questions as real ones
     if f["tag"] in ("textarea", "select"):
         return f["tag"]
     return {"email": "email", "tel": "tel", "url": "url", "number": "number", "date": "date",
@@ -338,6 +364,12 @@ def profile_values(profile: dict, job: dict) -> dict:
         "sponsorship": av.get("needs_sponsorship"),
         "driving_licence": av.get("driving_licence"),
         "own_transport": av.get("own_transport"),
+        # Someone using JobBot is applying from outside, so "Do you currently work for us?" is No.
+        "current_employee": bool(av.get("current_employee", False)),
+        "over_18": av.get("over_18"),
+        "weekends": av.get("weekends"),
+        "evenings": av.get("evenings"),
+        "nights": av.get("nights"),
         "hear_about": {"reed": "Reed.co.uk", "adzuna": "Adzuna"}.get(job.get("source", ""), "Job board"),
         "cover_letter": cover_letter(profile, job),
         "summary": cv.get("summary", ""),
@@ -349,7 +381,7 @@ def profile_values(profile: dict, job: dict) -> dict:
 class Action:
     field_id: str
     key: str
-    op: str  # fill | select | click | upload
+    op: str  # fill | select | choose | click | upload
     value: str
     label: str
 
@@ -358,6 +390,7 @@ class Action:
 class Plan:
     actions: list[Action] = field(default_factory=list)
     unfilled_required: list[tuple[str, str]] = field(default_factory=list)  # (field id, label)
+    unanswered: list[str] = field(default_factory=list)  # optional questions left empty
     skipped_existing: int = 0
 
 
@@ -429,6 +462,13 @@ def plan_fills(fields: list[dict], values: dict, overwrite: bool = False) -> Pla
         if value not in (None, ""):
             if kind == "file":
                 action = Action(f["id"], rule.key, "upload", value, label)
+            elif f["tag"] == "combobox":
+                if isinstance(value, bool):
+                    action = Action(f["id"], rule.key, "choose", "Yes" if value else "No", label)
+                elif f["type"] == "combobox-input" and rule.key not in ("country", "hear_about"):
+                    action = Action(f["id"], rule.key, "fill", str(value), label)
+                else:
+                    action = Action(f["id"], rule.key, "choose", str(value), label)
             elif kind == "select":
                 opt = _option_for(f["options"], value, rule.key)
                 if opt:
@@ -447,6 +487,8 @@ def plan_fills(fields: list[dict], values: dict, overwrite: bool = False) -> Pla
             plan.actions.append(action)
         elif f["required"]:
             plan.unfilled_required.append((f["id"], label))
+        elif not (rule and rule.key == "skip") and (f.get("labels") or f.get("near") or f.get("aria")):
+            plan.unanswered.append(label)
 
     for name, group in radios.items():
         question = " | ".join(x for x in (group[0].get("group"), group[0].get("near"), name) if x)
@@ -470,6 +512,8 @@ def plan_fills(fields: list[dict], values: dict, overwrite: bool = False) -> Pla
                                        group[0].get("group") or name))
         elif any(g["required"] for g in group):
             plan.unfilled_required.append((group[0]["id"], group[0].get("group") or name))
+        elif group[0].get("group"):
+            plan.unanswered.append(group[0]["group"])
     return plan
 
 
@@ -480,8 +524,35 @@ class FillReport:
     url: str
     filled: list[str] = field(default_factory=list)
     needs_you: list[str] = field(default_factory=list)
+    unanswered: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     fields_seen: int = 0
+
+
+def _choose_option(frame, loc, wanted: str) -> None:
+    """Pick an answer in a custom dropdown: open it, click the matching option.
+
+    Opening a dropdown and picking an option never submits anything. If no
+    option matches, the dropdown is closed again by clicking it (not Escape,
+    which would close a pop-up form).
+    """
+    loc.click(timeout=5000)
+    options = frame.locator('[role="option"]:visible, [role="listbox"] li:visible')
+    try:
+        options.first.wait_for(state="visible", timeout=3000)
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError("the dropdown's options didn't appear") from exc
+    if wanted in ("Yes", "No"):
+        pattern = YES_RE if wanted == "Yes" else NO_RE
+    else:
+        pattern = re.compile(rf"^\s*{re.escape(wanted)}", re.I)
+    for i in range(options.count()):
+        opt = options.nth(i)
+        if pattern.search(opt.inner_text(timeout=2000)):
+            opt.click(timeout=3000)
+            return
+    loc.click(timeout=3000)
+    raise RuntimeError(f"no '{wanted}' option")
 
 
 def _run_actions(frame, plan: Plan, report: FillReport) -> list[str]:
@@ -495,6 +566,8 @@ def _run_actions(frame, plan: Plan, report: FillReport) -> list[str]:
                 loc.select_option(value=a.value, timeout=5000)
             elif a.op == "upload":
                 loc.set_input_files(a.value, timeout=5000)
+            elif a.op == "choose":
+                _choose_option(frame, loc, a.value)
             elif a.op == "click":
                 # JS click works for visually hidden custom radios/checkboxes and
                 # fires the same events a real click would.
@@ -526,6 +599,7 @@ def fill_page(page, values: dict, overwrite: bool = False) -> FillReport:
         done = _run_actions(frame, plan, report)
         todo = [fid for fid, _ in plan.unfilled_required]
         report.needs_you.extend(label for _, label in plan.unfilled_required)
+        report.unanswered.extend(plan.unanswered)
         try:
             frame.evaluate(MARK_JS, [done, todo, ""])
         except Exception:  # noqa: BLE001

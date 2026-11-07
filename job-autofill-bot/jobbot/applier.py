@@ -134,7 +134,15 @@ def _print_report(report) -> None:
     for line in report.filled:
         click.secho(f"    ✓ {line}", fg="green")
     for label in report.needs_you:
-        click.secho(f"    • needs you: {label[:70]}", fg="yellow")
+        click.secho(f"    • needs you (required): {label[:70]}", fg="yellow")
+    for label in report.unanswered[:8]:
+        click.secho(f"    • left for you: {label[:70]}", fg="yellow")
+    if not (report.filled or report.needs_you or report.unanswered):
+        click.secho("    This looks like the advert, not the form. Click the site's Apply button yourself "
+                    "(JobBot never clicks buttons, in case one sends your CV), then press r here.", fg="cyan")
+    elif report.fields_seen and not (report.filled or report.needs_you or report.unanswered or report.errors):
+        click.secho(f"    Nothing to fill here ({report.fields_seen} field(s) already filled or not part of an application).",
+                    fg="yellow")
     for err in report.errors:
         click.secho(f"    ! {err}", fg="red")
 

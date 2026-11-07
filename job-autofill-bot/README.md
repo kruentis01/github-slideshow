@@ -87,7 +87,8 @@ For each job you toggled on, JobBot:
 1. Opens the job in a browser window. If the advert page has no form, it follows the advert's **Apply** link to the form.
 2. Fills in the fields it recognises, including fields inside embedded iframes: name, email, phone, address, town, postcode, country, LinkedIn, current role and employer, years of experience, start date, notice period, hours, availability, expected hourly rate, right to work, sponsorship, driving licence and own transport, and "how did you hear about us". It uploads your **CV** and writes a **cover letter** for that job from your template, mentioning the job title, the company and your matching skills.
 3. Outlines filled fields in **green** and required fields it couldn't fill in **orange**, and lists both in the terminal.
-4. Waits for you in the terminal. Press **Enter** to move to the next job. On multi-page forms, click the site's Next button yourself, then press **r** and JobBot fills the new page.
+4. On sites where "Apply" is a button rather than a link (Reed, for example), JobBot stops at the advert and asks you to click Apply yourself, because on some sites that button sends your saved CV straight away. Click it, then press **r** and JobBot fills the questions that appear, including pop-ups like Reed's "Application questions".
+5. Waits for you in the terminal. Press **Enter** to move to the next job. On multi-page forms, click the site's Next button yourself, then press **r** and JobBot fills the new page.
 
 When every job is done, all the tabs stay open. Check each one, finish anything orange, tick consent boxes yourself and press the site's submit button. Press Enter in the terminal only when you've finished, because that closes the browser.
 

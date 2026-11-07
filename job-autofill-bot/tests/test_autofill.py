@@ -131,3 +131,50 @@ def test_past_start_date_becomes_today(profile):
     profile["availability"]["start_date"] = "2999-01-01"
     assert profile_values(profile, JOB)["start_date"] == "2999-01-01"
 
+
+
+REED_LIKE_PAGE = """
+<header><form action="/jobs"><input name="keywords" placeholder="job title, keywords or company">
+  <label for="loc">town or postcode</label><input id="loc" name="location"></form></header>
+<main><h1>Sales Assistant</h1><button id="apply" type="button">Apply now</button></main>
+<div role="dialog" aria-modal="true">
+  <h2>Application questions</h2>
+  <label for="emp">Do you currently work for us? <span>*</span></label>
+  <select id="emp"><option value=""></option><option value="1">Yes</option><option value="0">No</option></select>
+
+  <p id="wk-q">Are you happy to work weekends? *</p>
+  <button id="wk" type="button" aria-haspopup="listbox" aria-labelledby="wk-q">Select…</button>
+  <ul id="wk-list" role="listbox" hidden><li role="option">Yes</li><li role="option">No</li></ul>
+
+  <label for="pets">Why do you love pets?</label><textarea id="pets"></textarea>
+  <button id="continue" type="button" onclick="document.body.dataset.continued='yes'">Continue</button>
+</div>
+<script>
+  const wk = document.getElementById("wk"), list = document.getElementById("wk-list");
+  wk.addEventListener("click", () => { list.hidden = !list.hidden; });
+  list.querySelectorAll("li").forEach(li => li.addEventListener("click", () => {
+    wk.textContent = li.textContent; list.hidden = true;
+  }));
+</script>
+"""
+
+
+def test_reed_style_question_popup(browser, profile):
+    page = browser.new_page()
+    page.set_content(REED_LIKE_PAGE)
+    profile["availability"]["weekends"] = True
+    report = fill_page(page, profile_values(profile, JOB))
+    assert page.input_value("#loc") == ""  # the site's search bar is left alone
+    assert page.input_value("#emp") == "0"  # "Do you currently work for us?" -> No
+    assert page.inner_text("#wk") == "Yes"  # custom dropdown answered from availability
+    assert "Why do you love pets?" in report.unanswered  # reported, not guessed
+    assert page.evaluate("document.body.dataset.continued") is None  # never pressed Continue
+    page.close()
+
+
+def test_star_marks_a_field_as_required(browser, profile):
+    page = browser.new_page()
+    page.set_content('<label for="q">Favourite colour *</label><input id="q">')
+    report = fill_page(page, profile_values(profile, JOB))
+    assert "Favourite colour *" in report.needs_you
+    page.close()

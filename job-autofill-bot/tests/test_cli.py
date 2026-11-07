@@ -9,7 +9,7 @@ from jobbot.cli import main
 SETUP_ANSWERS = "\n".join([
     "", "", "", "", "", "", "", "", "", "",  # accept everything read from the CV
     "warehouse", "", "10", "12", "13.5", "any",   # preferences
-    "2 weeks", "2 weeks", "Mon-Fri", "37", "y", "n", "n", "n", "y", "n",  # availability
+    "2 weeks", "2 weeks", "Mon-Fri", "37", "y", "n", "n", "n", "y", "n", "y",  # availability
 ]) + "\n"
 
 

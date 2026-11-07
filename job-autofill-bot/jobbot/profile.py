@@ -182,6 +182,7 @@ def run_setup(cv_path: str, existing: dict | None = None) -> dict:
         "needs_sponsorship": False,
         "driving_licence": click.confirm("  Do you hold a full UK driving licence?",
                                          default=old_av.get("driving_licence", False)),
+        "over_18": click.confirm("  Are you 18 or over?", default=old_av.get("over_18", True)),
     }
     availability["needs_sponsorship"] = not availability["right_to_work"]
     availability["own_transport"] = availability["driving_licence"] and click.confirm(
