@@ -76,10 +76,12 @@ def load_env() -> None:
 
     Values already set in the environment win.
     """
-    for candidate in (data_dir() / ".env", Path.cwd() / ".env"):
+    # ".env.txt" too: Windows Notepad adds .txt and Explorer hides it.
+    for candidate in (data_dir() / ".env", data_dir() / ".env.txt", Path.cwd() / ".env", Path.cwd() / ".env.txt"):
         if not candidate.is_file():
             continue
-        for line in candidate.read_text(encoding="utf-8").splitlines():
+        # utf-8-sig drops the invisible byte-order mark some editors put at the start.
+        for line in candidate.read_text(encoding="utf-8-sig").splitlines():
             line = line.strip()
             if not line or line.startswith("#") or "=" not in line:
                 continue

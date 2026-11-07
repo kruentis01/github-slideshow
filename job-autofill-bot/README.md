@@ -30,7 +30,7 @@ JobBot reads listings through the official job board APIs. It doesn't scrape sea
 | **Reed** (recommended, returns full descriptions) | <https://www.reed.co.uk/developers/jobseeker> | `REED_API_KEY=...` |
 | Adzuna | <https://developer.adzuna.com/> | `ADZUNA_APP_ID=...` and `ADZUNA_APP_KEY=...` |
 
-See `.env.example`. If you haven't added any keys, `scan` uses 7 built-in **demo** jobs near Manchester. Their "apply" links open a practice form on your own computer, so you can try the whole flow safely.
+On Windows, Notepad may save the file as `.env.txt`; JobBot reads that too. See `.env.example`. If you haven't added any keys, `scan` uses 7 built-in **demo** jobs near Manchester. Their "apply" links open a practice form on your own computer, so you can try the whole flow safely.
 
 ## Use it
 

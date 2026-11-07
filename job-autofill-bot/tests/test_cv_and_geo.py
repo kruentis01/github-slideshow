@@ -143,3 +143,15 @@ def test_role_prefixes_are_stripped():
 
     lines = ["4 Month FTC Packing Operator - Reckitt", "May 2026 - Sept 2026", "• Packed things"]
     assert _guess_current_role(lines) == ("Packing Operator", "Reckitt")
+
+
+def test_env_txt_from_notepad_is_read(jobbot_home, monkeypatch):
+    import os
+
+    from jobbot import storage
+
+    monkeypatch.delenv("REED_API_KEY", raising=False)
+    jobbot_home.mkdir(parents=True, exist_ok=True)
+    (jobbot_home / ".env.txt").write_bytes("﻿REED_API_KEY=abc-123\r\n".encode("utf-8"))
+    storage.load_env()
+    assert os.environ["REED_API_KEY"] == "abc-123"
