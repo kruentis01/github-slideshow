@@ -98,6 +98,18 @@ How JobBot makes sure it never submits:
 * It leaves terms, privacy, consent and marketing boxes unticked.
 * It never touches passwords, payment or bank details, National Insurance numbers, dates of birth or captchas.
 
+#### If a site won't let you sign in (for example Reed)
+
+Some sign-in pages refuse a browser that a program has started. In that case, open the browser yourself first:
+
+```bash
+jobbot chrome            # opens a separate Chrome window on Reed's sign-in page
+# sign in to Reed and any other job sites in that window, leave it open, then:
+jobbot apply --connect
+```
+
+`jobbot chrome` starts your installed Google Chrome normally, with a separate JobBot profile (`~/.jobbot/chrome-profile`), so your everyday Chrome isn't touched and your sign-ins are kept for next time. `apply --connect` opens each application in a new tab of that window and leaves the window and tabs open when it finishes. While that window is open, other programs on your computer could control it the same way, so close it when you've finished applying.
+
 JobBot uses its own browser profile (`~/.jobbot/browser-profile`). If a site asks you to sign in, sign in once in that window and the login is remembered for next time.
 
 Other options: `--job <id>` fills only some of the toggled jobs, `--overwrite` replaces values already in a form, `--include-done` refills jobs already done, and `--no-follow` stays on the advert page.

@@ -4,6 +4,7 @@
     jobbot scan                    find jobs near your postcode and read each description
     jobbot table                   table of jobs with a toggle button per job
     jobbot apply                   fill in applications for toggled jobs (never submits)
+    jobbot chrome                  open a Chrome window to sign in to job sites, then: jobbot apply --connect
 """
 
 from __future__ import annotations
@@ -125,10 +126,13 @@ def table(terminal, port, no_open, export_path):
 @click.option("--no-follow", is_flag=True, help="Don't follow 'Apply' links from the advert to the form.")
 @click.option("--chrome", is_flag=True, help="Use your installed Google Chrome instead of Playwright's Chromium.")
 @click.option("--include-done", is_flag=True, help="Also redo jobs that were already filled.")
+@click.option("--connect", "connect", is_flag=True,
+              help="Fill forms in the Chrome window opened by `jobbot chrome`, where you signed in yourself.")
+@click.option("--port", type=int, default=9222, show_default=True, help="Port used by --connect.")
 @click.option("--headless", is_flag=True, hidden=True)
 @click.option("--screenshots", type=click.Path(file_okay=False), hidden=True)
 @click.option("--no-wait", is_flag=True, hidden=True)
-def apply(job_ids, overwrite, no_follow, chrome, include_done, headless, screenshots, no_wait):
+def apply(job_ids, overwrite, no_follow, chrome, include_done, connect, port, headless, screenshots, no_wait):
     """Fill in applications for the toggled jobs. Never submits them."""
     from .applier import run_apply
 
@@ -147,7 +151,19 @@ def apply(job_ids, overwrite, no_follow, chrome, include_done, headless, screens
     click.secho(f"Filling {len(jobs)} application(s). JobBot will NOT submit anything.", bold=True)
     run_apply(jobs, profile, headless=headless, wait=not (no_wait or headless), overwrite=overwrite,
               follow_apply_links=not no_follow, channel="chrome" if chrome else None,
-              screenshot_dir=Path(screenshots) if screenshots else None)
+              screenshot_dir=Path(screenshots) if screenshots else None,
+              connect_port=port if connect else None)
+
+
+@main.command()
+@click.option("--port", type=int, default=9222, show_default=True)
+@click.option("--url", default="https://www.reed.co.uk/account/signin", show_default=True,
+              help="Page to open first.")
+def chrome(port, url):
+    """Open a separate Chrome window to sign in to job sites, for `jobbot apply --connect`."""
+    from .applier import open_own_chrome
+
+    open_own_chrome(port=port, url=url)
 
 
 @main.command(name="profile")
