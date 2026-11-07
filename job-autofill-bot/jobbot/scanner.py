@@ -7,7 +7,7 @@ from typing import Callable
 
 from . import storage
 from .extract import analyse
-from .geo import geocode, haversine_miles, normalise_postcode
+from .geo import PostcodeError, bulk_lookup, geocode, haversine_miles, normalise_postcode
 from .matching import assess_fit
 from .sources import AdzunaSource, DemoSource, JobSource, ReedSource, SourceError
 
@@ -51,6 +51,7 @@ def scan(
             log(f"[{source.name}] {exc}")
             continue
         log(f"[{source.name}] {len(listings)} listings within {radius_miles:g} miles of {postcode}")
+        _place_postcode_locations(listings)
 
         for i, listing in enumerate(listings, 1):
             try:
@@ -71,6 +72,32 @@ def scan(
 
     merge_jobs(storage.load_jobs(), scanned, replace=replace)
     return scanned
+
+
+def _as_postcode(location: str) -> str | None:
+    try:
+        return normalise_postcode(location) if location and len(location.replace(" ", "")) >= 5 else None
+    except PostcodeError:
+        return None
+
+
+def _place_postcode_locations(listings) -> None:
+    """Reed sometimes gives a bare postcode ("CV32TX") as the location: show the
+    town and position it so the distance can be worked out."""
+    codes = {lst.location: _as_postcode(lst.location) for lst in listings if lst.latitude is None}
+    codes = {k: v for k, v in codes.items() if v}
+    if not codes:
+        return
+    found = bulk_lookup(list(codes.values()))
+    for lst in listings:
+        pc = codes.get(lst.location)
+        if not pc:
+            continue
+        info = found.get(pc)
+        if info:
+            lst.latitude, lst.longitude = info["lat"], info["lon"]
+        town = info["town"] if info else ""
+        lst.location = f"{town} ({pc})" if town else pc
 
 
 def merge_jobs(existing: list[dict], scanned: list[dict], replace: bool = False) -> list[dict]:

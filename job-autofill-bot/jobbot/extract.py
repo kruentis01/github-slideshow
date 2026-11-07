@@ -48,10 +48,21 @@ def _fmt_money(value: float) -> str:
     return f"£{value:,.2f}" if value < 1000 else f"£{value:,.0f}"
 
 
-def _pay_result(lo: float, hi: float | None, period: str, hours_per_week: float) -> dict:
+# Lowest plausible UK hourly rate (National Minimum Wage, age 18-20, from April 2026).
+_LOWEST_LEGAL_RATE = 10.85
+
+
+def _pay_result(lo: float, hi: float | None, period: str, hours_per_week: float | None) -> dict:
     hi = hi if hi and hi > lo else None
-    h_lo = _hourly(lo, period, hours_per_week)
-    h_hi = _hourly(hi, period, hours_per_week) if hi else None
+    # Annual and daily pay for part-time jobs is usually quoted as the full-time
+    # equivalent ("£24,000 pro rata"), so convert using a standard 37.5-hour week.
+    # Weekly pay is what you actually get, so use the advert's own hours for it.
+    hours = DEFAULT_HOURS_PER_WEEK if period in ("year", "day") or not hours_per_week else hours_per_week
+    if (period == "year" and hours_per_week and hours_per_week < DEFAULT_HOURS_PER_WEEK
+            and _hourly(lo, period, hours) < _LOWEST_LEGAL_RATE):
+        hours = hours_per_week  # below minimum wage as FTE, so it must be the actual part-time salary
+    h_lo = _hourly(lo, period, hours)
+    h_hi = _hourly(hi, period, hours) if hi else None
     rate = f"£{h_lo:.2f}" + (f"–£{h_hi:.2f}" if h_hi else "") + "/hr"
     if period == "hour":
         display = rate
@@ -69,7 +80,7 @@ def _pay_result(lo: float, hi: float | None, period: str, hours_per_week: float)
 
 
 def parse_pay(text: str, structured: dict | None = None,
-              hours_per_week: float = DEFAULT_HOURS_PER_WEEK) -> dict:
+              hours_per_week: float | None = None) -> dict:
     """Find the advertised pay and express it per hour.
 
     ``structured`` may carry ``salary_min``, ``salary_max`` and ``salary_type``
@@ -159,7 +170,7 @@ def _duration_value(raw: str) -> int:
     return int(raw) if raw.isdigit() else _WORD_NUMS[raw.lower()]
 
 
-def parse_contract(text: str, structured: dict | None = None) -> dict:
+def parse_contract(text: str, structured: dict | None = None, title: str = "") -> dict:
     text = text or ""
     structured = structured or {}
 
@@ -200,6 +211,11 @@ def parse_contract(text: str, structured: dict | None = None) -> dict:
         hours = "Part-time" if not hours else "Full or part-time"
     if not hours and structured.get("contract_time"):
         hours = str(structured["contract_time"]).replace("_", "-").capitalize()
+    # The job title is the most reliable signal ("Part Time Cleaner").
+    if re.search(r"\bpart[\s-]?time\b", title or "", re.I) and not re.search(r"\bfull\b", title, re.I):
+        hours = "Part-time"
+    elif re.search(r"\bfull[\s-]?time\b", title or "", re.I) and not re.search(r"\bpart\b", title, re.I):
+        hours = "Full-time"
 
     bits = [b for b in (ctype, length if length not in {"permanent"} else None, hours) if b]
     return {"type": ctype, "length": length, "hours": hours, "display": " · ".join(bits) or NOT_STATED}
@@ -329,10 +345,9 @@ def summarise(text: str, title: str = "", limit: int = 260) -> str:
 def analyse(description: str, title: str = "", structured: dict | None = None) -> dict:
     """Run every extractor over one job description."""
     shifts = parse_shifts(description)
-    hours = shifts["hours_per_week"] or DEFAULT_HOURS_PER_WEEK
     return {
-        "pay": parse_pay(description, structured, hours_per_week=hours),
-        "contract": parse_contract(description, structured),
+        "pay": parse_pay(description, structured, hours_per_week=shifts["hours_per_week"]),
+        "contract": parse_contract(description, structured, title),
         "shifts": shifts,
         "summary": summarise(description, title),
     }

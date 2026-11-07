@@ -7,6 +7,29 @@ import re
 from .cv_parser import find_known_skills
 
 
+# Short-term contracts are interchangeable for most people: a "fixed-term until
+# Christmas" job is what someone asking for temporary or seasonal work wants.
+_SHORT_TERM = {"temporary", "temp", "seasonal", "fixed-term", "fixed term", "contract", "zero hours",
+               "temp to perm", "maternity cover"}
+
+
+def _family(name: str) -> str:
+    name = name.lower()
+    if "perm" in name and "temp" not in name:
+        return "permanent"
+    if "apprentice" in name:
+        return "apprenticeship"
+    if any(k in name for k in _SHORT_TERM):
+        return "short-term"
+    return name
+
+
+def contract_matches(ctype: str, wanted: list[str]) -> bool:
+    if any(w.lower() in ctype.lower() for w in wanted):
+        return True
+    return _family(ctype) in {_family(w) for w in wanted}
+
+
 def assess_fit(job: dict, profile: dict | None) -> dict:
     if not profile:
         return {"matched_skills": [], "warnings": []}
@@ -40,7 +63,7 @@ def assess_fit(job: dict, profile: dict | None) -> dict:
 
     ctype = analysis.get("contract", {}).get("type")
     wanted = prefs.get("contract_types") or []
-    if ctype and wanted and not any(w.lower() in ctype.lower() for w in wanted):
+    if ctype and wanted and not contract_matches(ctype, wanted):
         warnings.append(f"{ctype.lower()} (you prefer {', '.join(wanted).lower()})")
 
     radius = prefs.get("radius_miles")

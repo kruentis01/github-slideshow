@@ -82,3 +82,29 @@ def lookup_town(postcode: str, timeout: float = 10) -> str:
         return result.get("admin_district") or result.get("parish") or ""
     except (requests.RequestException, PostcodeError, ValueError):
         return ""
+
+
+def bulk_lookup(postcodes: list[str], timeout: float = 15) -> dict[str, dict]:
+    """Look up many postcodes in one call (postcodes.io allows 100 at a time).
+
+    Returns {normalised postcode: {"lat", "lon", "town"}}; unknown or unreachable ones are left out.
+    """
+    out: dict[str, dict] = {}
+    wanted = sorted({p for p in postcodes if p and " " in p})
+    for i in range(0, len(wanted), 100):
+        chunk = wanted[i:i + 100]
+        try:
+            resp = requests.post(f"{POSTCODES_IO}/postcodes", json={"postcodes": chunk}, timeout=timeout)
+            resp.raise_for_status()
+            rows = resp.json().get("result") or []
+        except (requests.RequestException, ValueError):
+            return out
+        for row in rows:
+            res = row.get("result") or {}
+            if res.get("latitude") is None:
+                continue
+            out[normalise_postcode(row.get("query", ""))] = {
+                "lat": float(res["latitude"]), "lon": float(res["longitude"]),
+                "town": res.get("admin_district") or res.get("parish") or "",
+            }
+    return out

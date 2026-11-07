@@ -95,3 +95,29 @@ def test_merge_dedupes_same_advert_across_boards():
     a = {"id": "1", "title": "Picker", "company": "Acme", "source": "reed"}
     b = {"id": "2", "title": "picker ", "company": "ACME", "source": "adzuna"}
     assert [j["id"] for j in merge_jobs([], [a, b])] == ["1"]
+
+
+def test_contract_families():
+    from jobbot.matching import contract_matches
+
+    assert contract_matches("Fixed-term", ["temporary", "seasonal"])
+    assert contract_matches("Seasonal", ["temporary"])
+    assert not contract_matches("Permanent", ["temporary", "seasonal"])
+    assert contract_matches("Temp to perm", ["temporary"])
+
+
+def test_bare_postcode_locations_get_town_and_distance(monkeypatch, profile):
+    from jobbot.sources import JobSource, Listing
+
+    class OneJob(JobSource):
+        name = "fake"
+
+        def search(self, *a):
+            return [Listing(source="fake", source_id="1", title="Cleaner", location="CV32TX")]
+
+    monkeypatch.setattr("jobbot.scanner.geocode", lambda pc: (52.4068, -1.5197))
+    monkeypatch.setattr("jobbot.scanner.bulk_lookup",
+                        lambda pcs: {"CV3 2TX": {"lat": 52.39, "lon": -1.48, "town": "Coventry"}} if pcs == ["CV3 2TX"] else {})
+    job = scan("", "CV1 2LA", 10, [OneJob()], profile=profile, log=lambda m: None)[0]
+    assert job["location"] == "Coventry (CV3 2TX)"
+    assert 1 < job["distance_miles"] < 4

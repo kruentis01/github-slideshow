@@ -77,3 +77,24 @@ def test_every_demo_listing_has_pay_contract_and_shifts():
         assert a["pay"]["display"] != NOT_STATED, job["title"]
         assert a["shifts"]["display"] != NOT_STATED, job["title"]
         assert a["summary"], job["title"]
+
+
+def test_part_time_salary_is_treated_as_full_time_equivalent():
+    # "£30,000" for a 30-hour job is normally the FTE, so ~£15.38/hr, not £19.23.
+    a = analyse("Part time administrator, 30 hours per week. Salary £30,000 per annum.", "Part Time Administrator")
+    assert a["pay"]["hourly_min"] == pytest.approx(30000 / (37.5 * 52), abs=0.01)
+
+
+def test_small_part_time_salary_is_treated_as_actual_pay():
+    # £10,000 as FTE would be below minimum wage, so it is the real pay for 16 hours.
+    a = analyse("Weekend team member, 16 hours per week, £10,000 per annum.", "Team Member")
+    assert a["pay"]["hourly_min"] == pytest.approx(10000 / (16 * 52), abs=0.01)
+
+
+def test_weekly_pay_uses_advert_hours():
+    assert analyse("£400 per week for 32 hours per week")["pay"]["hourly_min"] == 12.5
+
+
+def test_title_decides_part_time():
+    c = parse_contract("Temporary role.", {"full_time": True}, title="Part Time Cleaner")
+    assert c["hours"] == "Part-time"
