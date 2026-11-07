@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JobBot shortlist</title>
+<style>
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f0f2f5; --text: #17191c; --muted: #5d6470;
+  --border: #dde1e7; --accent: #1f6feb; --accent-text: #ffffff; --on: #1a7f37; --on-bg: #dcf5e3;
+  --warn: #9a6700; --warn-bg: #fff4d6; --chip: #eef1f5; --shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1115; --surface: #171a20; --surface-2: #1d2128; --text: #e7e9ee; --muted: #9aa3af;
+    --border: #2b313b; --accent: #4c8dff; --accent-text: #0b0d10; --on: #4ac26b; --on-bg: #133820;
+    --warn: #e3b341; --warn-bg: #3a2e0f; --chip: #232832; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1115; --surface: #171a20; --surface-2: #1d2128; --text: #e7e9ee; --muted: #9aa3af;
+  --border: #2b313b; --accent: #4c8dff; --accent-text: #0b0d10; --on: #4ac26b; --on-bg: #133820;
+  --warn: #e3b341; --warn-bg: #3a2e0f; --chip: #232832; --shadow: none;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { padding: 24px 16px 8px; max-width: 1400px; margin: 0 auto; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+.sub { color: var(--muted); margin: 0; }
+.banner { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; max-width: 1400px; margin: 12px auto 0; padding: 0 16px; }
+.controls input[type=search] { flex: 1 1 220px; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; }
+.btn { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.btn:hover { background: var(--surface-2); }
+label.check { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+main { max-width: 1400px; margin: 12px auto 96px; padding: 0 16px; }
+table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
+th, td { text-align: left; vertical-align: top; padding: 12px; border-bottom: 1px solid var(--border); }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--surface-2); white-space: nowrap; }
+th button { all: unset; cursor: pointer; }
+th button::after { content: " ↕"; opacity: .5; }
+tr:last-child td { border-bottom: 0; }
+tr.is-on td { background: color-mix(in srgb, var(--on-bg) 45%, transparent); }
+.title { font-weight: 600; }
+.title a { color: inherit; text-decoration: none; }
+.title a:hover { text-decoration: underline; }
+.meta { color: var(--muted); font-size: 13px; }
+.rate { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+.rate .est { font-weight: 400; color: var(--muted); font-size: 12px; display: block; white-space: normal; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.chip { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--chip); color: var(--muted); }
+.chip.warn { background: var(--warn-bg); color: var(--warn); }
+.chip.status { background: var(--on-bg); color: var(--on); }
+details { margin-top: 6px; }
+details summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+details pre { white-space: pre-wrap; font: 13px/1.5 inherit; font-family: inherit; color: var(--muted); max-height: 320px; overflow: auto; margin: 6px 0 0; }
+.na { color: var(--muted); font-style: italic; }
+/* toggle switch */
+.toggle { position: relative; width: 52px; height: 30px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); cursor: pointer; padding: 0; flex: none; }
+.toggle::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--muted); transition: transform .15s ease, background .15s ease; }
+.toggle[aria-checked="true"] { background: var(--on); border-color: var(--on); }
+.toggle[aria-checked="true"]::after { transform: translateX(22px); background: #fff; }
+.toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.toggle-cell { width: 72px; }
+.toggle-label { display: block; font-size: 11px; color: var(--muted); margin-top: 4px; }
+footer { position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); border-top: 1px solid var(--border); padding: 12px 16px; }
+footer .inner { max-width: 1400px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+code { background: var(--chip); padding: 2px 6px; border-radius: 6px; }
+.toast { position: fixed; right: 16px; bottom: 72px; background: var(--text); color: var(--bg); padding: 8px 12px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.empty { padding: 32px; text-align: center; color: var(--muted); }
+@media (max-width: 860px) {
+  table, thead, tbody, tr, th, td { display: block; }
+  thead { display: none; }
+  table { border: 0; background: transparent; box-shadow: none; }
+  tr { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; padding: 4px 0; overflow: hidden; }
+  td { border: 0; padding: 6px 12px; }
+  td[data-label]::before { content: attr(data-label); display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .toggle-cell { width: auto; display: flex; align-items: center; gap: 10px; }
+  .toggle-label { margin: 0; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Your job shortlist</h1>
+  <p class="sub" id="sub"></p>
+  <p class="banner" id="static-banner" hidden>This is a saved copy, so toggles here are not saved. Run <code>jobbot table</code> to choose jobs.</p>
+</header>
+<div class="controls">
+  <input type="search" id="filter" placeholder="Filter by title, company, shift…" aria-label="Filter jobs">
+  <button class="btn" id="all-on" type="button">All on</button>
+  <button class="btn" id="all-off" type="button">All off</button>
+  <label class="check"><input type="checkbox" id="hide-warn"> Hide jobs with clashes</label>
+</div>
+<main>
+  <table>
+    <thead>
+      <tr>
+        <th>Apply</th>
+        <th><button type="button" data-sort="title">Job</button></th>
+        <th>Contract length</th>
+        <th>Advertised shifts</th>
+        <th><button type="button" data-sort="rate">Hourly rate</button></th>
+        <th>Summary</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+</main>
+<footer><div class="inner">
+  <strong id="count"></strong>
+  <span>Then run <code>jobbot apply</code> to fill these applications. Nothing is submitted.</span>
+</div></footer>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script id="data" type="application/json">/*__JOBBOT_DATA__*/null</script>
+<script>
+(() => {
+  const data = JSON.parse(document.getElementById("data").textContent);
+  let rows = data.rows;
+  const tbody = document.getElementById("rows");
+  const toast = document.getElementById("toast");
+  let sortKey = null, sortDir = 1;
+  if (!data.live) document.getElementById("static-banner").hidden = false;
+
+  const el = (tag, attrs = {}, ...kids) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === "class") n.className = v; else if (k === "text") n.textContent = v; else n.setAttribute(k, v);
+    }
+    for (const kid of kids) if (kid != null) n.append(kid);
+    return n;
+  };
+  const cell = (label, text) => {
+    const td = el("td", { "data-label": label });
+    if (!text || text === "Not stated") td.append(el("span", { class: "na", text: "Not stated" }));
+    else td.append(text);
+    return td;
+  };
+  function say(msg) {
+    toast.textContent = msg; toast.classList.add("show");
+    clearTimeout(say.t); say.t = setTimeout(() => toast.classList.remove("show"), 1800);
+  }
+
+  async function save(changes) {
+    if (!data.live) return true;
+    try {
+      const res = await fetch("/api/select", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-JobBot-Token": data.token },
+        body: JSON.stringify({ selected: changes }),
+      });
+      if (!res.ok) throw new Error(res.status);
+      return true;
+    } catch (e) {
+      say("Couldn't save. Is `jobbot table` still running?");
+      return false;
+    }
+  }
+
+  async function setSelected(ids, value) {
+    const changes = {}, before = {};
+    for (const r of rows) if (ids.includes(r.id)) { before[r.id] = r.selected; r.selected = value; changes[r.id] = value; }
+    render();
+    if (!(await save(changes))) {
+      for (const r of rows) if (r.id in before) r.selected = before[r.id];
+      render();
+    } else if (ids.length === 1) {
+      say(value ? "Toggled on" : "Toggled off");
+    }
+  }
+
+  function visible() {
+    const q = document.getElementById("filter").value.trim().toLowerCase();
+    const hideWarn = document.getElementById("hide-warn").checked;
+    let list = rows.filter(r => {
+      if (hideWarn && r.warnings.length) return false;
+      if (!q) return true;
+      return [r.title, r.company, r.location, r.contract, r.shifts, r.summary].join(" ").toLowerCase().includes(q);
+    });
+    if (sortKey === "rate") list = [...list].sort((a, b) => ((a.rate_value ?? -1) - (b.rate_value ?? -1)) * sortDir);
+    if (sortKey === "title") list = [...list].sort((a, b) => a.title.localeCompare(b.title) * sortDir);
+    return list;
+  }
+
+  function render() {
+    const list = visible();
+    tbody.replaceChildren();
+    if (!list.length) {
+      const td = el("td", { colspan: "6", class: "empty", text: rows.length ? "No jobs match the filter." : "No jobs yet. Run `jobbot scan` first." });
+      tbody.append(el("tr", {}, td));
+    }
+    for (const r of list) {
+      const tr = el("tr", { class: r.selected ? "is-on" : "" });
+      const btn = el("button", { class: "toggle", type: "button", role: "switch", "aria-checked": String(r.selected), "aria-label": `Apply to ${r.title} at ${r.company}` });
+      btn.addEventListener("click", () => setSelected([r.id], !r.selected));
+      tr.append(el("td", { class: "toggle-cell", "data-label": "" }, btn, el("span", { class: "toggle-label", text: r.selected ? "Will fill" : "Skip" })));
+
+      const title = el("div", { class: "title" }, r.url ? el("a", { href: r.url, target: "_blank", rel: "noopener", text: r.title }) : r.title);
+      const metaBits = [r.company, r.location, r.distance != null ? `${r.distance.toFixed(1)} mi` : null, r.source].filter(Boolean);
+      const chips = el("div", { class: "chips" });
+      if (r.application) chips.append(el("span", { class: "chip status", text: r.application }));
+      for (const w of r.warnings) chips.append(el("span", { class: "chip warn", text: "⚠ " + w }));
+      for (const s of r.matched_skills.slice(0, 5)) chips.append(el("span", { class: "chip", text: s }));
+      tr.append(el("td", { "data-label": "Job" }, title, el("div", { class: "meta", text: metaBits.join(" · ") }), chips.childElementCount ? chips : null));
+
+      tr.append(cell("Contract length", r.contract));
+      tr.append(cell("Advertised shifts", r.shifts));
+      const rate = el("td", { "data-label": "Hourly rate", class: "rate" });
+      if (r.rate === "Not stated") rate.append(el("span", { class: "na", text: "Not stated" }));
+      else if (r.rate_estimated) {
+        const m = r.rate.match(/^≈(\S+)\s*\((.*)\)$/);
+        rate.append(m ? m[1] : r.rate, el("span", { class: "est", text: m ? `estimated from ${m[2]}` : "estimated" }));
+      } else rate.append(r.rate);
+      tr.append(rate);
+
+      const sum = el("td", { "data-label": "Summary" }, r.summary);
+      if (r.description) {
+        sum.append(el("details", {}, el("summary", { text: "Full description" }), el("pre", { text: r.description })));
+      }
+      tr.append(sum);
+      tbody.append(tr);
+    }
+    const on = rows.filter(r => r.selected).length;
+    document.getElementById("count").textContent = `${on} of ${rows.length} toggled on`;
+    document.getElementById("sub").textContent = `${rows.length} jobs scanned. Toggle the ones you want JobBot to fill in.`;
+  }
+
+  document.getElementById("filter").addEventListener("input", render);
+  document.getElementById("hide-warn").addEventListener("change", render);
+  document.getElementById("all-on").addEventListener("click", () => setSelected(visible().map(r => r.id), true));
+  document.getElementById("all-off").addEventListener("click", () => setSelected(visible().map(r => r.id), false));
+  document.querySelectorAll("th button[data-sort]").forEach(b => b.addEventListener("click", () => {
+    const key = b.dataset.sort;
+    sortDir = sortKey === key ? -sortDir : (key === "rate" ? -1 : 1);
+    sortKey = key;
+    render();
+  }));
+  render();
+})();
+</script>
+</body>
+</html>

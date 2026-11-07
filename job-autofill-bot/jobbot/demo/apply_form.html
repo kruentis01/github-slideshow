@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Practice application form</title>
+<style>
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 16px; color: #1d1d1f; background: #fafafa; }
+  h1 { font-size: 1.5rem; }
+  .note { background: #fff7d6; border: 1px solid #e9d27a; padding: .75rem 1rem; border-radius: 8px; }
+  fieldset { border: 1px solid #ddd; border-radius: 8px; margin: 1.25rem 0; padding: 1rem; background: #fff; }
+  label { display: block; margin: .6rem 0 .2rem; font-weight: 600; }
+  input[type=text], input[type=email], input[type=tel], input[type=date], input[type=url], input[type=number], select, textarea { width: 100%; padding: .5rem; box-sizing: border-box; border: 1px solid #bbb; border-radius: 6px; font: inherit; }
+  .inline label { display: inline; font-weight: normal; margin-right: 1rem; }
+  button { font: inherit; padding: .6rem 1.4rem; border-radius: 6px; border: 0; background: #0b6bcb; color: #fff; }
+  #result { margin-top: 1rem; font-weight: 700; }
+</style>
+</head>
+<body>
+<h1>Apply: <span id="job-title">Practice job</span></h1>
+<p class="note">This is JobBot's offline practice form. Nothing here is sent anywhere.</p>
+
+<form id="application" action="#" onsubmit="event.preventDefault(); document.getElementById('result').textContent = 'SUBMITTED'; document.body.dataset.submitted = 'yes';">
+  <fieldset>
+    <legend>About you</legend>
+    <label for="fname">First name *</label>
+    <input type="text" id="fname" name="firstName" required>
+    <label for="lname">Surname *</label>
+    <input type="text" id="lname" name="lastName" required>
+    <label for="email">Email address *</label>
+    <input type="email" id="email" name="email" required>
+    <label for="tel">Mobile number</label>
+    <input type="tel" id="tel" name="mobile">
+    <label for="addr">Address line 1</label>
+    <input type="text" id="addr" name="address1" autocomplete="address-line1">
+    <label for="town">Town / City</label>
+    <input type="text" id="town" name="city">
+    <label for="pc">Postcode</label>
+    <input type="text" id="pc" name="postcode">
+    <label for="li">LinkedIn profile URL</label>
+    <input type="url" id="li" name="linkedin">
+  </fieldset>
+
+  <fieldset>
+    <legend>Eligibility and availability</legend>
+    <label for="rtw">Do you have the right to work in the UK? *</label>
+    <select id="rtw" name="rightToWork" required>
+      <option value="">Please select</option>
+      <option value="y">Yes</option>
+      <option value="n">No</option>
+    </select>
+    <p id="dl-q"><strong>Do you hold a full UK driving licence?</strong></p>
+    <div class="inline" role="radiogroup" aria-labelledby="dl-q">
+      <input type="radio" id="dl-yes" name="licence" value="yes"><label for="dl-yes">Yes</label>
+      <input type="radio" id="dl-no" name="licence" value="no"><label for="dl-no">No</label>
+    </div>
+    <label for="start">Earliest start date</label>
+    <input type="date" id="start" name="startDate">
+    <label for="notice">Notice period</label>
+    <input type="text" id="notice" name="noticePeriod">
+    <label for="hours">How many hours per week are you looking for?</label>
+    <input type="number" id="hours" name="hoursPerWeek">
+    <label for="avail">Please describe your availability</label>
+    <textarea id="avail" name="availability" rows="2"></textarea>
+    <label for="rate">Expected hourly rate (£)</label>
+    <input type="text" id="rate" name="expectedRate">
+  </fieldset>
+
+  <fieldset>
+    <legend>Your application</legend>
+    <label for="cv">Upload your CV *</label>
+    <input type="file" id="cv" name="cv" required>
+    <label for="cover">Cover letter</label>
+    <textarea id="cover" name="coverLetter" rows="8"></textarea>
+    <label for="hear">How did you hear about us?</label>
+    <select id="hear" name="source">
+      <option value="">Please select</option>
+      <option>Job board</option>
+      <option>Friend</option>
+      <option>Social media</option>
+    </select>
+    <p class="inline"><input type="checkbox" id="terms" name="terms" required><label for="terms">I agree to the privacy policy *</label></p>
+  </fieldset>
+
+  <button type="submit">Submit application</button>
+  <div id="result"></div>
+</form>
+<script>
+  const job = new URLSearchParams(location.search).get("job");
+  if (job) document.getElementById("job-title").textContent = "Practice job " + job;
+</script>
+</body>
+</html>
