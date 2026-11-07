@@ -13,7 +13,8 @@ from pathlib import Path
 import click
 
 from . import storage
-from .autofill import fill_page, open_application, profile_values
+from .autofill import MARK_JS, fill_page, open_application, profile_values
+from .hotkey import Hotkey, advance
 
 
 def _launch(playwright, headless: bool, channel: str | None):
@@ -127,10 +128,63 @@ def _record(job_id: str, status: str, report=None) -> None:
     storage.save_jobs(jobs)
 
 
-def _print_report(report) -> None:
+def _read_terminal_key() -> str | None:
+    """Return a key typed in the terminal, without waiting, or None."""
+    if os.name == "nt":
+        import msvcrt
+
+        if msvcrt.kbhit():
+            return msvcrt.getwch().lower()
+        return None
+    import select
+    import sys
+
+    if not sys.stdin or sys.stdin.closed:
+        return "q"
+    ready, _, _ = select.select([sys.stdin], [], [], 0)
+    if not ready:
+        return None
+    line = sys.stdin.readline()
+    if not line:
+        return "q"  # input closed
+    return line.strip().lower()[:1] or "\n"
+
+
+def _hotkey_step(page, context, values, overwrite, job, reports):
+    """Hotkey pressed: click the next-step button, then fill what appears."""
+    try:
+        status, text, page = advance(page, context)
+    except Exception as exc:  # noqa: BLE001
+        click.secho(f"    ! Couldn't press the button: {str(exc).splitlines()[0][:120]}", fg="red")
+        return None
+    if status == "final":
+        msg = (f"That's the final button ('{text}'). JobBot won't press it: check everything, "
+               f"then press it yourself.")
+        click.secho(f"    ■ {msg}", fg="magenta", bold=True)
+        _banner(page, msg)
+        return page
+    if status == "none":
+        msg = "JobBot couldn't find an Apply, Continue or Next button on this page. Click it yourself, then press r."
+        click.secho(f"    ? {msg}", fg="yellow")
+        _banner(page, msg)
+        return page
+    click.secho(f"    → Pressed '{text}'", fg="cyan")
+    report = fill_page(page, values, overwrite=overwrite)
+    reports.append(report)
+    _print_report(report)
+    _record(job["id"], "filled — not submitted", report)
+    return page
+
+
+def _banner(page, message: str) -> None:
+    try:
+        page.evaluate(MARK_JS, [[], [], message])
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _print_report(report, hotkey_label: str = "") -> None:
     click.echo(f"    Page: {report.url}")
-    if not report.fields_seen:
-        click.secho("    No form fields found. The site may need you to sign in or click through first.", fg="yellow")
     for line in report.filled:
         click.secho(f"    ✓ {line}", fg="green")
     for label in report.needs_you:
@@ -138,8 +192,10 @@ def _print_report(report) -> None:
     for label in report.unanswered[:8]:
         click.secho(f"    • left for you: {label[:70]}", fg="yellow")
     if not (report.filled or report.needs_you or report.unanswered):
-        click.secho("    This looks like the advert, not the form. Click the site's Apply button yourself "
-                    "(JobBot never clicks buttons, in case one sends your CV), then press r here.", fg="cyan")
+        how = (f"press {hotkey_label} in the browser (JobBot presses Apply and fills the form), "
+               f"or click Apply yourself and press r here") if hotkey_label else \
+            "click the site's Apply button yourself, then fill again"
+        click.secho(f"    This looks like the advert, not the form: {how}.", fg="cyan")
     elif report.fields_seen and not (report.filled or report.needs_you or report.unanswered or report.errors):
         click.secho(f"    Nothing to fill here ({report.fields_seen} field(s) already filled or not part of an application).",
                     fg="yellow")
@@ -149,7 +205,8 @@ def _print_report(report) -> None:
 
 def run_apply(jobs: list[dict], profile: dict, *, headless: bool = False, wait: bool = True,
               overwrite: bool = False, follow_apply_links: bool = True, channel: str | None = None,
-              screenshot_dir: Path | None = None, connect_port: int | None = None) -> list:
+              screenshot_dir: Path | None = None, connect_port: int | None = None,
+              hotkey_spec: str = "alt+n") -> list:
     from playwright.sync_api import sync_playwright
 
     cv_path = profile.get("cv_path")
@@ -172,6 +229,9 @@ def run_apply(jobs: list[dict], profile: dict, *, headless: bool = False, wait: 
             context = _launch(p, headless, channel)
             # A persistent context opens with one blank tab; reuse it.
             spare = context.pages[0] if context.pages and context.pages[0].url in ("about:blank", "") else None
+        hotkey = Hotkey(hotkey_spec)
+        if wait:
+            hotkey.install(context)
         try:
             for n, job in enumerate(jobs, 1):
                 url = job.get("apply_url") or job.get("url")
@@ -190,27 +250,41 @@ def run_apply(jobs: list[dict], profile: dict, *, headless: bool = False, wait: 
                 values = profile_values(profile, job)
                 report = fill_page(page, values, overwrite=overwrite)
                 reports.append(report)
-                _print_report(report)
+                _print_report(report, hotkey.label if wait else "")
                 _record(job["id"], "filled — not submitted" if report.filled else "opened — nothing filled", report)
                 if screenshot_dir:
                     screenshot_dir.mkdir(parents=True, exist_ok=True)
                     page.screenshot(path=str(screenshot_dir / f"{job['id']}.png"), full_page=True)
 
-                # Multi-page forms: let the person move to the next step, then fill again.
+                # Multi-page forms: the hotkey (in the browser) clicks Apply/Continue/Next and
+                # fills the next step; the terminal keys refill, move on or stop.
+                if wait:
+                    click.secho(f"    In the browser: {hotkey.label} = click Apply / Continue / Next and fill the next "
+                                f"step (never Submit).", fg="cyan")
+                    click.echo("    Here: [r] fill this tab again · [Enter] next job · [q] stop")
                 while wait:
-                    choice = click.prompt(
-                        "    [Enter] next job · [r] fill this tab again (after you click Next on the site) · [q] stop",
-                        default="", show_default=False,
-                    ).strip().lower()
-                    if choice == "r":
+                    key = _read_terminal_key()
+                    pressed = hotkey.take()
+                    if pressed is not None:
+                        page = _hotkey_step(pressed, context, values, overwrite, job, reports) or page
+                        continue
+                    if key is None:
+                        try:
+                            page.wait_for_timeout(120)  # lets browser events (the hotkey) arrive
+                        except Exception:  # noqa: BLE001 - the tab was closed
+                            break
+                        continue
+                    if key == "r":
                         report = fill_page(page, values, overwrite=overwrite)
                         reports.append(report)
-                        _print_report(report)
+                        _print_report(report, hotkey.label)
                         _record(job["id"], "filled — not submitted", report)
                         continue
-                    if choice == "q":
+                    if key == "q":
                         jobs = jobs[:n]
-                    break
+                        break
+                    if key in ("\r", "\n", " "):
+                        break
                 if n >= len(jobs):
                     break
 

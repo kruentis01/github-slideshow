@@ -129,12 +129,20 @@ def table(terminal, port, no_open, export_path):
 @click.option("--connect", "connect", is_flag=True,
               help="Fill forms in the Chrome window opened by `jobbot chrome`, where you signed in yourself.")
 @click.option("--port", type=int, default=9222, show_default=True, help="Port used by --connect.")
+@click.option("--hotkey", default="alt+n", show_default=True,
+              help="Key to press in the browser to click Apply/Continue/Next and fill the next step.")
 @click.option("--headless", is_flag=True, hidden=True)
 @click.option("--screenshots", type=click.Path(file_okay=False), hidden=True)
 @click.option("--no-wait", is_flag=True, hidden=True)
-def apply(job_ids, overwrite, no_follow, chrome, include_done, connect, port, headless, screenshots, no_wait):
+def apply(job_ids, overwrite, no_follow, chrome, include_done, connect, port, hotkey, headless, screenshots, no_wait):
     """Fill in applications for the toggled jobs. Never submits them."""
     from .applier import run_apply
+    from .hotkey import parse_hotkey
+
+    try:
+        parse_hotkey(hotkey)
+    except ValueError as exc:
+        raise click.BadParameter(str(exc), param_hint="--hotkey") from exc
 
     profile = _need_profile()
     jobs = [j for j in storage.load_jobs() if j.get("selected")]
@@ -152,7 +160,7 @@ def apply(job_ids, overwrite, no_follow, chrome, include_done, connect, port, he
     run_apply(jobs, profile, headless=headless, wait=not (no_wait or headless), overwrite=overwrite,
               follow_apply_links=not no_follow, channel="chrome" if chrome else None,
               screenshot_dir=Path(screenshots) if screenshots else None,
-              connect_port=port if connect else None)
+              connect_port=port if connect else None, hotkey_spec=hotkey)
 
 
 @main.command()
