@@ -69,3 +69,16 @@ def haversine_miles(a: tuple[float, float], b: tuple[float, float]) -> float:
     lat2, lon2 = map(math.radians, b)
     h = math.sin((lat2 - lat1) / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin((lon2 - lon1) / 2) ** 2
     return 2 * 3958.7613 * math.asin(math.sqrt(h))
+
+
+def lookup_town(postcode: str, timeout: float = 10) -> str:
+    """Return the town/district for a postcode (e.g. "CV1 2LA" -> "Coventry"), or "" if unknown."""
+    try:
+        pc = normalise_postcode(postcode)
+        resp = requests.get(f"{POSTCODES_IO}/postcodes/{pc.replace(' ', '')}", timeout=timeout)
+        if not resp.ok:
+            return ""
+        result = resp.json().get("result") or {}
+        return result.get("admin_district") or result.get("parish") or ""
+    except (requests.RequestException, PostcodeError, ValueError):
+        return ""

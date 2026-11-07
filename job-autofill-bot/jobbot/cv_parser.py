@@ -63,7 +63,7 @@ def extract_text(path: str | Path) -> str:
         import pdfplumber
 
         with pdfplumber.open(path) as pdf:
-            text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+            text = "\n".join(_pdf_page_text(page) for page in pdf.pages)
     elif suffix == ".docx":
         import docx
 
@@ -84,6 +84,67 @@ def extract_text(path: str | Path) -> str:
         raise ValueError(
             "No text could be read from the CV. If it's a scanned image, export it as a text PDF or DOCX."
         )
+    return text
+
+
+def _group_lines(words: list[dict], tolerance: float = 3) -> list[tuple[float, str]]:
+    """Group pdfplumber words into (top, text) lines, left to right."""
+    lines: list[list[dict]] = []
+    for word in sorted(words, key=lambda w: (w["top"], w["x0"])):
+        if lines and abs(lines[-1][0]["top"] - word["top"]) <= tolerance:
+            lines[-1].append(word)
+        else:
+            lines.append([word])
+    return [(ln[0]["top"], " ".join(w["text"] for w in sorted(ln, key=lambda w: w["x0"]))) for ln in lines]
+
+
+def _pdf_page_text(page) -> str:
+    """Read a PDF page, keeping two-column layouts apart.
+
+    A plain text dump of a two-column CV interleaves the columns line by line
+    (skills mixed into work history). If a vertical gap splits the page body
+    into two columns, read the header across the full width, then the left
+    column, then the right column.
+    """
+    words = page.extract_words(x_tolerance=1.5)
+    plain = page.extract_text() or ""
+    if len(words) < 40:
+        return plain
+    width = page.width
+    best = None
+    for x in range(int(width * 0.3), int(width * 0.72), 2):
+        left = sum(1 for w in words if w["x1"] <= x)
+        right = sum(1 for w in words if w["x0"] >= x)
+        if min(left, right) < len(words) * 0.15:
+            continue
+        crossing = len(words) - left - right
+        if best is None or crossing < best[0]:
+            best = (crossing, x)
+    if best is None or best[0] > len(words) * 0.04:
+        return plain  # single column
+    split = best[1]
+
+    def column(w):
+        return "left" if (w["x0"] + w["x1"]) / 2 < split else "right"
+
+    cols = {"left": [w for w in words if column(w) == "left"], "right": [w for w in words if column(w) == "right"]}
+    # The header (name, contact details) runs across the page above the first section heading.
+    heading_tops = [top for side in cols.values() for top, text in _group_lines(side) if _header_key(text.rstrip(":"))]
+    body_top = min(heading_tops) - 1 if heading_tops else 0
+    header = _group_lines([w for w in words if w["top"] < body_top])
+    parts = [text for _, text in header]
+    for side in ("left", "right"):
+        parts.append("")
+        parts.extend(text for _, text in _group_lines([w for w in cols[side] if w["top"] >= body_top]))
+    return "\n".join(parts)
+
+
+def _repair_email(text: str) -> str:
+    """Rejoin UK emails that wrap in the PDF, e.g. "name@uni.ac." + newline + "uk"."""
+    def fix(m):
+        return m.group(1) + "uk"
+    if re.search(r"(?m)^\s*uk\b|\buk\s*$", text, re.I):
+        text = re.sub(r"([\w.+-]+@[\w-]+(?:\.[\w-]+)*\.(?:ac|co|gov|nhs|sch|ltd|plc|org|net)\.)(?![\w-])", fix, text)
     return text
 
 
@@ -121,8 +182,29 @@ def _guess_name(lines: list[str]) -> str:
     return ""
 
 
+_BULLET_RE = re.compile(r"^\s*[•▪●◦·*–-]\s+")
+
+
+def _merge_bullets(lines: list[str]) -> list[str]:
+    """Join a bullet's wrapped continuation lines back onto it."""
+    merged: list[str] = []
+    for line in lines:
+        if _BULLET_RE.match(line) or not merged:
+            merged.append(_BULLET_RE.sub("", line).strip())
+        else:
+            merged[-1] = f"{merged[-1]} {line.strip()}"
+    return merged
+
+
 def _split_skill_items(lines: list[str]) -> list[str]:
     items: list[str] = []
+    if sum(1 for ln in lines if _BULLET_RE.match(ln)) >= 2:
+        # One skill per bullet; commas inside a bullet belong to that skill.
+        for bullet in _merge_bullets(lines):
+            bullet = re.sub(r"[\s,;.]+$|\s+(and|&)$", "", bullet).strip()
+            if 2 <= len(bullet) <= 70 and len(bullet.split()) <= 10 and not _DATE_RANGE_RE.search(bullet):
+                items.append(bullet)
+        return items
     for line in lines:
         for part in re.split(r"[,;•|·▪●◦]|\s{2,}|\s-\s", line):
             part = part.strip(" -*–:\t")
@@ -154,17 +236,50 @@ _DATE_RANGE_RE = re.compile(
 )
 
 
+_CONTRACT_PREFIX_RE = re.compile(
+    r"^(?:\d+[\s-]*(?:week|month|year)s?\s+)?(?:ftc|fixed[\s-]term|temporary|temp|part[\s-]time|full[\s-]time|"
+    r"seasonal|contract|casual|zero[\s-]hours?)\b\s*|^\d+[\s-]*(?:week|month|year)s?\s+",
+    re.I,
+)
+
+
+def _split_role(line: str) -> tuple[str, str]:
+    clean = _DATE_RANGE_RE.sub("", line).strip(" |,-–()")
+    title, employer = clean, ""
+    for sep in (" at ", " - ", " – ", " — ", " | ", ", "):
+        if sep in clean:
+            title, employer = clean.split(sep, 1)
+            break
+    while True:  # "4 Month FTC Packing Operator" -> "Packing Operator"
+        shorter = _CONTRACT_PREFIX_RE.sub("", title.strip(), count=1)
+        if shorter == title.strip() or not shorter:
+            break
+        title = shorter
+    return title.strip(), employer.strip(" |,-–")
+
+
 def _guess_current_role(lines: list[str]) -> tuple[str, str]:
-    """Return (job title, employer) from the first entry of the experience section."""
-    for line in lines[:4]:
-        clean = _DATE_RANGE_RE.sub("", line).strip(" |,-–()")
-        if not clean or len(clean) > 90:
+    """Return (job title, employer): the job marked "Present", else the first one listed."""
+    entries = []  # (title, employer, is_current)
+    for i, line in enumerate(lines):
+        if _BULLET_RE.match(line) or len(line) > 90:
             continue
-        for sep in (" at ", " - ", " – ", " | ", ", "):
-            if sep in clean:
-                title, employer = clean.split(sep, 1)
-                return title.strip(), employer.strip(" |,-–")
-        return clean, ""
+        own_dates = _DATE_RANGE_RE.search(line)
+        if own_dates and not _DATE_RANGE_RE.sub("", line).strip(" |,-–()"):
+            continue  # a line that is only dates
+        nxt = lines[i + 1] if i + 1 < len(lines) else ""
+        dates = own_dates or _DATE_RANGE_RE.search(nxt)
+        if not dates:
+            continue
+        title, employer = _split_role(line)
+        if title:
+            entries.append((title, employer, bool(re.search(r"present|current|now", dates.group(3), re.I))))
+    if entries:
+        current = next((e for e in entries if e[2]), entries[0])
+        return current[0], current[1]
+    for line in lines[:4]:  # no dates at all: fall back to the first line
+        if not _BULLET_RE.match(line) and len(line) <= 90:
+            return _split_role(line)
     return "", ""
 
 
@@ -185,8 +300,14 @@ def _years_experience(text: str) -> int | None:
     return max(0, last - first)
 
 
+_STREET_RE = re.compile(
+    r"\b\d+[a-z]?,?\s+(?:[A-Z][\w'-]*\s+){1,4}(?:Road|Rd|Street|St|Avenue|Ave|Lane|Ln|Close|Drive|Dr|Way|"
+    r"Crescent|Court|Ct|Place|Pl|Grove|Terrace|Gardens|Hill|Park|Walk|Row|Square|View|Mews|Rise|Green)\b\.?"
+)
+
+
 def parse_cv(path: str | Path) -> dict:
-    text = extract_text(path)
+    text = _repair_email(extract_text(path))
     sections = split_sections(text)
     header = sections.get("header", [])
 
@@ -210,12 +331,19 @@ def parse_cv(path: str | Path) -> dict:
             # e.g. "12 Chester Road, Stretford, Manchester M32 0AB"
             before = re.split(r"\b" + postcode.split()[0], line, flags=re.I)[0]
             parts = [p.strip() for p in before.split(",") if p.strip()]
+            parts = [p for p in parts if p.lower() not in {"uk", "united kingdom", "england"}]
             if len(parts) == 1 and not re.match(r"\d", parts[0]):
                 town = parts[0]  # just "Manchester M32 0AB"
             elif parts:
                 address = parts[0]
                 town = parts[-1] if len(parts) > 1 else ""
             break
+    if not _STREET_RE.search(address or ""):
+        street = _STREET_RE.search("\n".join(header))
+        if street:
+            address = street.group(0).rstrip(".,")
+    if town and (len(town) < 3 or _STREET_RE.search(town) or re.search(r"\d|@", town)):
+        town = ""
 
     return {
         "full_name": name,

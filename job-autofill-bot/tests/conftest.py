@@ -15,6 +15,7 @@ def jobbot_home(tmp_path, monkeypatch):
         monkeypatch.delenv(key, raising=False)
     # Never hit postcodes.io from tests.
     monkeypatch.setattr("jobbot.scanner.geocode", lambda pc: None)
+    monkeypatch.setattr("jobbot.profile.lookup_town", lambda pc: "")
     return home
 
 

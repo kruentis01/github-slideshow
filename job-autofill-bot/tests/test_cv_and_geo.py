@@ -82,3 +82,64 @@ def test_start_date_and_days():
     assert parse_days("Mon-Fri") == ["Mon", "Tue", "Wed", "Thu", "Fri"]
     assert parse_days("mon, wed, sat") == ["Mon", "Wed", "Sat"]
     assert parse_days("Fri-Mon") == ["Mon", "Fri", "Sat", "Sun"]
+
+
+TWO_COLUMN_CV = """
+<style>
+  body { font: 11px sans-serif; width: 560px; margin: 30px; }
+  .cols { display: flex; gap: 40px; } .left { width: 330px; } .right { width: 190px; }
+  .head { display: flex; justify-content: space-between; }
+  h2 { font-size: 12px; margin: 10px 0 4px; } p, li { margin: 2px 0; } ul { padding-left: 12px; }
+</style>
+<h1>SAM PATEL</h1>
+<div class="head"><div>sam.patel@leeds.ac.<br>+44 7700 900456<br>uk</div><div>14 Kirkstall Road<br>LS3 1HS</div>
+<div>Available now</div></div>
+<div class="cols">
+ <div class="left">
+  <h2>PROFILE</h2>
+  <p>Hard-working student with retail and warehouse experience, looking for flexible weekend work in Leeds city centre.</p>
+  <h2>EXPERIENCE</h2>
+  <p>6 Month FTC Picker Packer - Amazon</p><p>Mar 2025 - Sep 2025</p>
+  <p>• Picked and packed customer orders to tight deadlines on a busy rotating night shift pattern every week.</p>
+  <p>• Worked safely around forklifts and kept the area tidy and organised throughout every shift worked.</p>
+  <p>Barista - Costa Coffee</p><p>Oct 2025 - Present</p>
+  <p>• Served customers quickly during the morning rush and handled cash and card payments accurately.</p>
+  <p>• Kept the store clean and stocked and trained two new starters on the coffee machines each month.</p>
+ </div>
+ <div class="right">
+  <h2>EDUCATION</h2><p>A levels @ Leeds College</p><p>• Maths (A)</p><p>• English Language</p>
+  <h2>KEY SKILLS</h2>
+  <p>• Customer service, cash and card handling</p><p>• Teamwork &amp; reliable work ethic</p>
+  <p>• Stock rotation, replenishment &amp; inventory checks</p><p>• Food hygiene level 2</p>
+ </div>
+</div>
+"""
+
+
+def test_two_column_pdf_cv(tmp_path):
+    sync_api = pytest.importorskip("playwright.sync_api")
+    path = tmp_path / "two_col.pdf"
+    with sync_api.sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.set_content(TWO_COLUMN_CV)
+        page.pdf(path=str(path))
+        browser.close()
+    cv = parse_cv(path)
+    assert cv["full_name"] == "Sam Patel"
+    assert cv["email"] == "sam.patel@leeds.ac.uk"  # wrapped over two lines in the PDF
+    assert cv["address"] == "14 Kirkstall Road"
+    assert cv["postcode"] == "LS3 1HS"
+    # The job marked "Present", not a stray line from the other column.
+    assert (cv["current_title"], cv["current_employer"]) == ("Barista", "Costa Coffee")
+    assert "Customer service, cash and card handling" in cv["skills"]
+    assert "Stock rotation, replenishment & inventory checks" in cv["skills"]
+    assert not any("Picked and packed" in s for s in cv["skills"])
+    assert cv["summary"].startswith("Hard-working student")
+
+
+def test_role_prefixes_are_stripped():
+    from jobbot.cv_parser import _guess_current_role
+
+    lines = ["4 Month FTC Packing Operator - Reckitt", "May 2026 - Sept 2026", "• Packed things"]
+    assert _guess_current_role(lines) == ("Packing Operator", "Reckitt")

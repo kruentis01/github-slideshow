@@ -11,7 +11,7 @@ import click
 
 from . import storage
 from .cv_parser import parse_cv
-from .geo import PostcodeError, normalise_postcode
+from .geo import PostcodeError, lookup_town, normalise_postcode
 
 DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 FULL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -119,6 +119,8 @@ def run_setup(cv_path: str, existing: dict | None = None) -> dict:
     ask("Email", "email", required=True)
     ask("Phone", "phone")
     ask("Address (first line)", "address")
+    if not cv.get("town") and not old_cv.get("town") and cv.get("postcode"):
+        cv["town"] = lookup_town(cv["postcode"])  # e.g. CV1 2LA -> Coventry
     ask("Town / city", "town")
     cv["postcode"] = _ask_postcode("  Home postcode", cv.get("postcode") or old_cv.get("postcode", ""))
     ask("LinkedIn URL", "linkedin")
